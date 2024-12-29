@@ -19,9 +19,6 @@ This application allows users to:
 ## Installation
 
 1. Clone the repository:
-   ```bash
-   git clone [your-repository-url]
-   ```
 
 2. Navigate to the project directory:
    ```bash
@@ -45,4 +42,18 @@ This application allows users to:
 
 ## Development Notes
 
-- Optimised for Web and mobile with responsive design.
+### Frontend
+
+Only relevant features are implemented, however, there are many other features that could be added to the frontend.
+
+- Document generation for scripts, letters to GPs, letters to patients or carers, etc.
+- The ability to pause the consultation.
+- Patient profiles and previous information.
+
+### Backend
+
+As this is a mockup with placeholder data, I decided to not implement a backend. However, if I were to implement a backend, key items to consider, unique to this project, would be:
+
+- Audio recording: I would create an 30-second to 1-minute interval check where when recording, the audio would be split into segments to check for any issues with the microphone, internet connection, or other issues. If an issue had occured in one of the audio segments, we would still have all the older audio segments. An error would be thrown to the frontend to be displayed to the user.
+- Summary generation: I would use a LLM to generate the summaries which would take into account the notes, previous patient information, and the audio recording.
+
