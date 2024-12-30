@@ -39,6 +39,7 @@ This application allows users to:
 2. App will be available at `http://localhost:8081`
 3. For mobile access, download Expo Go app (iOS/Android).
 4. Scan the QR code with Expo Go app (Android) or camera (iOS).
+5. Alternatively, it can be run on a mobile simulator.
 
 ## Development Notes
 
@@ -56,7 +57,7 @@ Only relevant features are implemented, however, there are many other features t
 As this is a mockup with placeholder data, I decided to not implement a backend. However, if I were to implement a backend, key items to consider, unique to this project, would be:
 
 - Audio recording: I would create a 30-second to 1-minute interval check where when recording, the audio would be split into segments to check for any issues with the microphone, internet connection, or other issues. If an issue had occured in one of the audio segments, we would still have all the older audio segments. An error would be thrown to the frontend to be displayed to the user.
-- Summary generation: I would use a LLM to generate the summaries which would take into account the notes, previous patient information, and the audio recording.
+- Summary generation: I would use a LLM to generate the summaries which would take into account the notes, previous patient information, and the audio recording. The audio recording would be the segmented audio stitched back together.
 
 
 ### Unit Testing

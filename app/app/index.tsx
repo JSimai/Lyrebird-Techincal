@@ -43,6 +43,7 @@ const generateRandomTime = () => {
 };
 
 export default function Index() {
+
   const generatePastConsultation = (hoursAgo: number): Consultation => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -149,7 +150,7 @@ export default function Index() {
       <Text style={consultationsStyles.subHeader}>Plan</Text>
       <Text style={consultationsStyles.summary}>{consultation.summary.plan}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Written Notes</Text>
+      <Text style={consultationsStyles.subHeader}>Consultation Notes</Text>
       <Text style={consultationsStyles.summary}>{consultation.note ? consultation.note : 'No notes.'}{'\n\n\n\n\n\n\n'}</Text>
     </ScrollView>
   );
