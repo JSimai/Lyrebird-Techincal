@@ -59,11 +59,13 @@ export const generalStyles = StyleSheet.create({
       flex: 1,
       padding: 16,
       gap: 16,
+      paddingBottom: 0,
     },
     {
       flexDirection: 'row',
       padding: 48,
       paddingTop: 24,
+      paddingBottom: 48,
       gap: 48,
     }
   ),

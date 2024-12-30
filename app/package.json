@@ -12,7 +12,14 @@
     "lint": "expo lint"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "testMatch": [
+      "<rootDir>/utils/**/*.test.tsx",
+      "<rootDir>/utils/**/*.test.ts"
+    ]
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
@@ -43,6 +50,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@testing-library/react-native": "^12.9.0",
     "@types/jest": "^29.5.12",
     "@types/react": "~18.3.12",
     "@types/react-test-renderer": "^18.3.0",

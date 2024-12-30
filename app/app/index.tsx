@@ -68,36 +68,55 @@ export default function Index() {
   const [activeTab, setActiveTab] = useState('history');
   const [patientName, setPatientName] = useState(generateRandomName());
   const [consultTime, setConsultTime] = useState(generateRandomTime());
+  const [showDocPopup, setShowDocPopup] = useState(false);
 
-  const startRecording = () => {
-    setIsRecording(true);
-    // Placeholder for actual recording functionality
-    console.log('Recording started');
+  const startRecording = async () => {
+    try {
+      setIsRecording(true);
+      setActiveTab('current');
+      // Placeholder for actual recording functionality
+      console.log('Recording started');
+      
+      // await audioRecorder.startRecording();
+      
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      setIsRecording(false); // Reset state if recording fails
+      alert('Failed to start recording. Please try again.');
+    }
   };
 
-  const stopRecording = () => {
-    setIsRecording(false);
-    Keyboard.dismiss();
-    // Placeholder for actual recording functionality
-    console.log('Recording stopped');
-    
-    const randomSummary = summaries[Math.floor(Math.random() * summaries.length)];
+  const stopRecording = async () => {
+    try {
+      setIsRecording(false);
+      Keyboard.dismiss();
+      // Placeholder for actual recording functionality
+      console.log('Recording stopped');
+      
+      // const recordingResult = await audioRecorder.stopRecording();
+      
+      const randomSummary = summaries[Math.floor(Math.random() * summaries.length)];
 
-    // Create a new consultation with the current note
-    const newConsultation: Consultation = {
-      id: Date.now().toString(),
-      patientName: patientName,
-      date: new Date(),
-      time: consultTime,
-      note: currentNote,
-      summary: randomSummary,
-    };
+      const newConsultation: Consultation = {
+        id: Date.now().toString(),
+        patientName: patientName,
+        date: new Date(),
+        time: consultTime,
+        note: currentNote,
+        summary: randomSummary,
+      };
 
-    setConsultations([newConsultation, ...consultations]);
-    setActiveTab('current');
-    setCurrentNote('');
-    setPatientName(generateRandomName());
-    setConsultTime(generateRandomTime());
+      setConsultations([newConsultation, ...consultations]);
+      setActiveTab('current');
+      setCurrentNote('');
+      setPatientName(generateRandomName());
+      setConsultTime(generateRandomTime());
+      
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      setIsRecording(true); // Keep recording state if stop fails
+      alert('Failed to stop recording. Please try again.');
+    }
   };
 
   const renderConsultation = ({ item: consultation }: { item: Consultation }) => (
@@ -141,7 +160,8 @@ export default function Index() {
       consultation.date.toDateString() === new Date(Date.now() - 86400000).toDateString();
     
     if (index > 0) {
-      isFirstYesterdayConsult = consultations[index-1].date.toDateString() !== new Date(Date.now() - 86400000).toDateString();
+      isFirstYesterdayConsult = consultation.date.toDateString() !== new Date().toDateString() &&
+        consultations[index-1].date.toDateString() !== new Date(Date.now() - 86400000).toDateString();
     }
 
     return (
@@ -172,7 +192,7 @@ export default function Index() {
       </View>
 
       <View>
-        <View style={generalStyles.patientInfoSection}>
+        <View style={[generalStyles.patientInfoSection, isRecording && {backgroundColor: COLORS.RECORDING_200}]}>
           <Text style={generalStyles.patientName}>{patientName}</Text>
           <Text style={generalStyles.consultDateTime}>
             {new Date().toLocaleDateString()} - {consultTime}
@@ -197,7 +217,7 @@ export default function Index() {
           <Text style={generalStyles.sectionTitle}>Consultation Summaries</Text>
           <View style={consultationsStyles.tabSelector}>
             <TouchableOpacity style={activeTab === 'current' ? consultationsStyles.tabButtonSelected : consultationsStyles.tabButton} onPress={() => setActiveTab('current')}>
-              <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'current' ? 'white' : '#457CBF'}]}>Current</Text>
+              <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'current' ? 'white' : '#457CBF'}]}>Recent</Text>
             </TouchableOpacity>
             <TouchableOpacity style={activeTab === 'history' ? consultationsStyles.tabButtonSelected : consultationsStyles.tabButton} onPress={() => setActiveTab('history')}>
               <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'history' ? 'white' : '#457CBF'}]}>History</Text>
@@ -205,7 +225,7 @@ export default function Index() {
           </View>
           {activeTab === 'current' ?
             <View style={{flex: 1}}>
-              {consultations[0] && renderConsultation({ item: consultations[0] })}
+              {consultations[0] && !isRecording && renderConsultation({ item: consultations[0] })}
             </View>
             :
             <FlatList
@@ -219,34 +239,53 @@ export default function Index() {
       </View>
 
       <View style={commandTabStyles.container}>
-        <View style={commandTabStyles.tab}>
-          {isRecording ?
+        {isRecording ?
+          <View style={commandTabStyles.tab}>
             <View style={commandTabStyles.recordButtonCont}>
               <View style={commandTabStyles.recordButton}>
                 <View style={commandTabStyles.recordingIndicator} />
                 <Text style={commandTabStyles.recordingIndicatorText}>Recording...</Text>
               </View>
               <View style={commandTabStyles.divider}/>
-              <Pressable style={commandTabStyles.stopButton} onPress={stopRecording}>
+              <Pressable testID="stop-button" style={commandTabStyles.stopButton} onPress={stopRecording}>
                 {({pressed, hovered}) => (
                   <Entypo 
                     name="controller-stop" 
                     size={28} 
-                    color={hovered ? COLORS.ERROR : COLORS.GRAY_500} 
+                    color={hovered ? COLORS.RECORDING : COLORS.GRAY_500} 
                   />
                 )}
               </Pressable>
             </View>
+          </View>
           :
-            <TouchableOpacity
-              style={commandTabStyles.recordButton}
-              onPress={startRecording}
-            >
-              <Entypo name="mic" size={20} color={COLORS.PRIMARY} />
-              <Text style={commandTabStyles.buttonText}>Start Recording</Text>
-            </TouchableOpacity>
-          }
-        </View>
+          <View>
+            {showDocPopup && (
+              <View style={commandTabStyles.popupContainer}>
+                <Text style={commandTabStyles.popupText}>
+                  This button would offer users to generate letters to GPs, Patients, and Carers, as well as any other relevant generative docs.
+                </Text>
+              </View>
+            )}
+            <View style={commandTabStyles.tab}>
+              <TouchableOpacity
+                style={commandTabStyles.recordButton}
+                onPress={startRecording}
+              >
+                <Entypo name="mic" size={20} color={COLORS.PRIMARY} />
+                <Text style={commandTabStyles.buttonText}>Start Recording</Text>
+              </TouchableOpacity>
+              <View style={commandTabStyles.divider}/>
+              <TouchableOpacity
+                style={commandTabStyles.recordButton}
+                onPress={() => setShowDocPopup(!showDocPopup)}
+              >
+                <Entypo name="circle-with-plus" size={20} color={COLORS.GRAY_800} />
+                <Text style={[commandTabStyles.buttonText, {color: COLORS.GRAY_800}]}>{showDocPopup ? 'Hide Popup' : 'Generate Doc'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
       </View>
     </View>
   );

@@ -1,5 +1,7 @@
 export const COLORS = {
   PRIMARY: '#457CBF',
+  RECORDING: '#D53F3F',
+  RECORDING_200: '#F7D9D9',
 
   // Neutral colors
   WHITE: '#FFFFFF',

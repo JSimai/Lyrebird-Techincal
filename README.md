@@ -46,9 +46,10 @@ This application allows users to:
 
 Only relevant features are implemented, however, there are many other features that could be added to the frontend.
 
-- Document generation for scripts, letters to GPs, letters to patients or carers, etc.
+- Currently a placeholder; document generation for scripts, letters to GPs, letters to patients or carers, etc.
 - The ability to pause the consultation.
 - Patient profiles and previous information.
+- Instead of a simple list for the history, I would implement a calendar view with the ability to filter by date, time, and patient info for both past and future appointments.
 
 ### Backend
 
@@ -60,8 +61,8 @@ As this is a mockup with placeholder data, I decided to not implement a backend.
 
 ### Unit Testing
 
-A series of unit tests should be created to make sure audio recording, audio checking, summary generation, and document generation all work as expected.
+I have created a few very simple unit tests to make sure the UI works as expected. A series of unit tests should be created to make sure audio recording, audio checking, summary generation, and document generation all work as expected when full stack functionality is implemented.
 
 ### Error Handling
 
-Try and catch blocks should be used to handle errors in the frontend and backend allowing for the user to be informed of any issues without crashing the app or corrupting data.
+Try and catch blocks should be used to handle errors in the frontend allowing for the user to be informed of any issues without crashing the app or corrupting data.
