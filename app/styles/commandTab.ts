@@ -47,7 +47,6 @@ export const commandTabStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 40,
   },
 
   recordButtonCont: {
@@ -66,6 +65,11 @@ export const commandTabStyles = StyleSheet.create({
   recordingIndicatorText: {
     color: COLORS.RECORDING,
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  recordingTimeText: {
+    // color: COLORS.RECORDING,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 

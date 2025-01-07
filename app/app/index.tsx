@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, Pressable } from 'react-native';
 import { generalStyles } from '../styles/general';
 import { commandTabStyles } from '../styles/commandTab';
@@ -8,7 +8,9 @@ import { StatusBar } from 'expo-status-bar';
 import { Keyboard } from 'react-native';
 import Entypo from '@expo/vector-icons/Entypo';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { COLORS, firstNames, lastNames, summaries } from '../utils/constants';
+import { audioRecorder } from '../utils/audioRecorder';
 
 interface Consultation {
   id: string;
@@ -44,59 +46,90 @@ const generateRandomTime = () => {
 
 export default function Index() {
 
-  const generatePastConsultation = (hoursAgo: number): Consultation => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(9 + hoursAgo); // Spread throughout yesterday (starting at 9 AM)
-    
-    return {
-      id: (Date.now() - hoursAgo * 3600000).toString(),
-      patientName: generateRandomName(),
-      date: yesterday,
-      time: `${(9 + hoursAgo > 12 ? 9 + hoursAgo - 12 : 9 + hoursAgo)}:00 ${9 + hoursAgo >= 12 ? 'PM' : 'AM'}`,
-      note: "",
-      summary: summaries[Math.floor(Math.random() * summaries.length)],
-    };
-  };
-
-  const [isRecording, setIsRecording] = useState(false);
+  const [consultationStatus, setConsultationStatus] = useState("waiting");
   const [currentNote, setCurrentNote] = useState('');
   const [consultations, setConsultations] = useState<Consultation[]>([
-    generatePastConsultation(6),  // 3:00 PM yesterday
-    generatePastConsultation(4),  // 1:00 PM yesterday
-    generatePastConsultation(2),  // 11:00 AM yesterday
+    {
+      id: Date.now().toString(),
+      patientName: "Sarah Mitchell",
+      date: new Date(),
+      time: generateRandomTime(),
+      note: currentNote,
+      summary: { 
+        text: "Hi there, welcome, good morning. Can you tell me your name and what brings you in today? Hi, my name is Sarah Mitchell. I've been feeling unwell for a few days. I have a persistent headache, some nausea, and occasional dizziness. I've been in before. I'm an existing patient. I see. Well, nice to see you again. Have you experienced these symptoms before? Uh, not really. It started three days ago after I had a long day at work. Yes, it was really long, very stressful. I also haven't been sleeping very well. Okay. Are you taking any medications currently? And do you have any known medical conditions? I take daily antihistamine for allergies and I had a panadol a couple days ago, but no other medications or major health issues. Got it. Any recent changes in your diet, stress levels or maybe exposure to allergens? I've been stressed with work. Like I said, I skipped a few meals this week. Otherwise, no major changes. Understood. Based on what you've described, it sounds like your symptoms may be related to stress and lack of rest. I'd recommend staying hydrated, eating regular meals, and trying to get more sleep. If the symptoms persist or worsen we can run some tests to rule out other causes. Does that sound good to you? Makes sense. I'll try those suggestions. Great. If you need anything else, don't hesitate to reach out. Take care.", 
+        subjective: "Sarah Mitchell reports feeling unwell for a few days with a persistent headache, nausea, and occasional dizziness. Symptoms started three days ago after a long, stressful day at work and poor sleep.", 
+        pmh: "No major health issues reported.", 
+        medications: "Daily antihistamine for allergies, Panadol taken a couple of days ago.", 
+        familyHistory: "Not discussed in this consultation.", 
+        examination: "No physical examination findings were discussed.", 
+        assessment: "Symptoms may be related to stress and lack of rest.", 
+        plan: "Recommend staying hydrated, eating regular meals, and getting more sleep. If symptoms persist or worsen, consider running tests to rule out other causes."
+      },
+    }
   ]);
-  const [activeTab, setActiveTab] = useState('history');
+  const [activeTab, setActiveTab] = useState('summary');
   const [patientName, setPatientName] = useState(generateRandomName());
   const [consultTime, setConsultTime] = useState(generateRandomTime());
   const [showDocPopup, setShowDocPopup] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingTimer = useRef<NodeJS.Timeout | null>(null);
+  
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const startRecording = async () => {
     try {
-      setIsRecording(true);
-      setActiveTab('current');
-      // Placeholder for actual recording functionality
-      console.log('Recording started');
-      
-      // await audioRecorder.startRecording();
-      
+      await audioRecorder.startRecording();
+      setConsultationStatus("recording");
+      setActiveTab('summary');
+      // Start timer
+      recordingTimer.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
     } catch (error) {
       console.error('Failed to start recording:', error);
-      setIsRecording(false); // Reset state if recording fails
       alert('Failed to start recording. Please try again.');
     }
   };
 
   const stopRecording = async () => {
     try {
-      setIsRecording(false);
+      // Clear timer
+      if (recordingTimer.current) {
+        clearInterval(recordingTimer.current);
+        recordingTimer.current = null;
+      }
+      setConsultationStatus("generating");
+      const { audioBlob, transcription } = await audioRecorder.stopRecording();
+      console.log('Received from audioRecorder:', { transcription });
       Keyboard.dismiss();
-      // Placeholder for actual recording functionality
-      console.log('Recording stopped');
-      
-      // const recordingResult = await audioRecorder.stopRecording();
-      
-      const randomSummary = summaries[Math.floor(Math.random() * summaries.length)];
+
+      // Send transcription to backend for summary generation
+      const response = await fetch('http://localhost:3000/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcription })
+      });
+
+      const { summary } = await response.json();
+
+      // console.log('Summary:', summary);
+
+      // const summary = { 
+      //   text: "Hi there, welcome, good morning. Can you tell me your name and what brings you in today? Hi, my name is Sarah Mitchell. I've been feeling unwell for a few days. I have a persistent headache, some nausea, and occasional dizziness. I've been in before. I'm an existing patient. I see. Well, nice to see you again. Have you experienced these symptoms before? Uh, not really. It started three days ago after I had a long day at work. Yes, it was really long, very stressful. I also haven't been sleeping very well. Okay. Are you taking any medications currently? And do you have any known medical conditions? I take daily antihistamine for allergies and I had a panadol a couple days ago, but no other medications or major health issues. Got it. Any recent changes in your diet, stress levels or maybe exposure to allergens? I've been stressed with work. Like I said, I skipped a few meals this week. Otherwise, no major changes. Understood. Based on what you've described, it sounds like your symptoms may be related to stress and lack of rest. I'd recommend staying hydrated, eating regular meals, and trying to get more sleep. If the symptoms persist or worsen we can run some tests to rule out other causes. Does that sound good to you? Makes sense. I'll try those suggestions. Great. If you need anything else, don't hesitate to reach out. Take care.", 
+      //   subjective: "Sarah Mitchell reports feeling unwell for a few days with a persistent headache, nausea, and occasional dizziness. Symptoms started three days ago after a long, stressful day at work and poor sleep.", 
+      //   pmh: "No major health issues reported.", 
+      //   medications: "Daily antihistamine for allergies, Panadol taken a couple of days ago.", 
+      //   familyHistory: "Not discussed in this consultation.", 
+      //   examination: "No physical examination findings were discussed.", 
+      //   assessment: "Symptoms may be related to stress and lack of rest.", 
+      //   plan: "Recommend staying hydrated, eating regular meals, and getting more sleep. If symptoms persist or worsen, consider running tests to rule out other causes."
+      // }
 
       const newConsultation: Consultation = {
         id: Date.now().toString(),
@@ -104,56 +137,76 @@ export default function Index() {
         date: new Date(),
         time: consultTime,
         note: currentNote,
-        summary: randomSummary,
+        summary: summary,
       };
 
       setConsultations([newConsultation, ...consultations]);
-      setActiveTab('current');
-      setCurrentNote('');
-      setPatientName(generateRandomName());
-      setConsultTime(generateRandomTime());
-      
+      setConsultationStatus("summary");
+      setActiveTab('summary');
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      setIsRecording(true); // Keep recording state if stop fails
       alert('Failed to stop recording. Please try again.');
     }
   };
 
-  const renderConsultation = ({ item: consultation }: { item: Consultation }) => (
-    <ScrollView style={consultationsStyles.currentConsultationItem}>
-      <Text style={consultationsStyles.consultationHeader}>
-        {consultation.patientName} - {consultation.date.toLocaleDateString()} - {consultation.time}
-      </Text>
-      
-      <Text style={consultationsStyles.subHeader}>Summary</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.text}</Text>
+  const nextPatient = () => {
+    // Need to add extra notes onto the previously written notes if post consultation notes are written.
+    setConsultationStatus("waiting");
+    setActiveTab('summary');
+    setCurrentNote('');
+    setPatientName(generateRandomName());
+    setConsultTime(generateRandomTime());
+  };
 
-      <Text style={consultationsStyles.subHeader}>Subjective</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.subjective}</Text>
+  const resetTimer = () => {
+    if (recordingTimer.current) {
+      clearInterval(recordingTimer.current);
+      recordingTimer.current = null;
+    }
+    setRecordingDuration(0);
+  };
 
-      <Text style={consultationsStyles.subHeader}>Past Medical History</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.pmh}</Text>
+  const renderConsultation = ({ item: consultation }: { item: Consultation }, version: string) => {
+    return (
+      <ScrollView style={consultationsStyles.currentConsultationItem}>
+        <Text style={consultationsStyles.consultationHeader}>
+          {consultation.patientName} - {consultation.date.toLocaleDateString()} - {consultation.time}
+        </Text>
+        
+        {version === "Transcript" ?
+            <Text style={consultationsStyles.summary}>{consultation.summary.text}</Text>
+          :
+          <>
+            <Text style={consultationsStyles.subHeader}>Subjective</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.subjective}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Medications</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.medications}</Text>
+            <Text style={consultationsStyles.subHeader}>Past Medical History</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.pmh}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Family History</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.familyHistory}</Text>
+            <Text style={consultationsStyles.subHeader}>Medications</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.medications}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Examination</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.examination}</Text>
+            <Text style={consultationsStyles.subHeader}>Family History</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.familyHistory}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Assessment</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.assessment}</Text>
+            <Text style={consultationsStyles.subHeader}>Examination</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.examination}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Plan</Text>
-      <Text style={consultationsStyles.summary}>{consultation.summary.plan}</Text>
+            <Text style={consultationsStyles.subHeader}>Assessment</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.assessment}</Text>
 
-      <Text style={consultationsStyles.subHeader}>Consultation Notes</Text>
-      <Text style={consultationsStyles.summary}>{consultation.note ? consultation.note : 'No notes.'}{'\n\n\n\n\n\n\n'}</Text>
-    </ScrollView>
-  );
+            <Text style={consultationsStyles.subHeader}>Plan</Text>
+            <Text style={consultationsStyles.summary}>{consultation.summary.plan}</Text>
+
+            <Text style={consultationsStyles.subHeader}>Consultation Notes</Text>
+            <Text style={consultationsStyles.summary}>{consultation.note ? consultation.note : 'No notes.'}{'\n\n\n\n\n\n\n'}</Text>
+          </>
+        }
+
+        
+      </ScrollView>
+    );
+  };
 
   const renderHistoryConsultation = ({ item: consultation, index, separators }: { item: Consultation, index: number, separators: any }) => {
     // Check if this consultation is from yesterday and if it's the first one from yesterday
@@ -177,11 +230,18 @@ export default function Index() {
           <Text style={consultationsStyles.consultationHeader}>
             {consultation.patientName} - {consultation.date.toLocaleDateString()} - {consultation.time}
           </Text>
-          <Text style={consultationsStyles.summary} numberOfLines={2}>{consultation.summary.text}</Text>
+          <Text style={consultationsStyles.summary}>{consultation.summary.subjective}</Text>
         </View>
       </View>
     );
   };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup socket when component unmounts
+      audioRecorder.cleanup();
+    };
+  }, []);
 
   return (
     <View style={generalStyles.container}>
@@ -193,8 +253,23 @@ export default function Index() {
       </View>
 
       <View>
-        <View style={[generalStyles.patientInfoSection, isRecording && {backgroundColor: COLORS.RECORDING_200}]}>
-          <Text style={generalStyles.patientName}>{patientName}</Text>
+        <View style={generalStyles.patientInfoSection}>
+          <View style={generalStyles.patientNameCont}>
+            <Text style={generalStyles.patientName}>{patientName}</Text>
+            {consultationStatus === "recording" ? 
+              <View style={commandTabStyles.recordButton}>
+                <View style={commandTabStyles.recordingIndicator} />
+                <Text style={commandTabStyles.recordingTimeText}>{formatDuration(recordingDuration)}</Text>
+              </View>
+              : (consultationStatus === "generating" || consultationStatus === "summary") ?
+              <View style={commandTabStyles.recordButton}>
+                <View style={[commandTabStyles.recordingIndicator, {backgroundColor: COLORS.SUCCESS}]} />
+                <Text style={commandTabStyles.recordingTimeText}>{formatDuration(recordingDuration)}</Text>
+              </View>
+              :
+              <View/>
+            }
+          </View>
           <Text style={generalStyles.consultDateTime}>
             {new Date().toLocaleDateString()} - {consultTime}
           </Text>
@@ -203,7 +278,7 @@ export default function Index() {
 
       <View style={generalStyles.mainContent}>
         <View style={notesStyles.notesSection}>
-          <Text style={generalStyles.sectionTitle}>Notes</Text>
+          <Text style={generalStyles.sectionTitle}>Notepad</Text>
           <TextInput
             style={notesStyles.input}
             value={currentNote}
@@ -215,18 +290,40 @@ export default function Index() {
         </View>
         <View style={generalStyles.divider}/>
         <View style={consultationsStyles.consultationsSection}>
-          <Text style={generalStyles.sectionTitle}>Consultation Summaries</Text>
           <View style={consultationsStyles.tabSelector}>
-            <TouchableOpacity style={activeTab === 'current' ? consultationsStyles.tabButtonSelected : consultationsStyles.tabButton} onPress={() => setActiveTab('current')}>
-              <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'current' ? 'white' : '#457CBF'}]}>Recent</Text>
+            <TouchableOpacity style={activeTab === 'summary' ? [consultationsStyles.tabButton, {backgroundColor: '#457CBF'}] : consultationsStyles.tabButton} onPress={() => setActiveTab('summary')}>
+              <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'summary' ? 'white' : '#457CBF'}]}>Summary</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={activeTab === 'history' ? consultationsStyles.tabButtonSelected : consultationsStyles.tabButton} onPress={() => setActiveTab('history')}>
-              <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'history' ? 'white' : '#457CBF'}]}>History</Text>
+            <TouchableOpacity style={activeTab === 'transcript' ? [consultationsStyles.tabButton, {backgroundColor: '#457CBF'}] : consultationsStyles.tabButton} onPress={() => setActiveTab('transcript')}>
+              <Text style={[consultationsStyles.tabButtonText, {color: activeTab === 'transcript' ? 'white' : '#457CBF'}]}>Transcript</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={activeTab === 'history' ? [consultationsStyles.tabButtonHistory, {backgroundColor: '#457CBF'}] : consultationsStyles.tabButtonHistory} onPress={() => setActiveTab('history')}>
+              <MaterialIcons name="history" size={24} color={activeTab === 'history' ? 'white' : '#457CBF'} />
             </TouchableOpacity>
           </View>
-          {activeTab === 'current' ?
+          {activeTab === 'transcript' ?
             <View style={{flex: 1}}>
-              {consultations[0] && !isRecording && renderConsultation({ item: consultations[0] })}
+              {consultationStatus === "waiting" ?
+                <Text>Begin recording to start generating transcript.</Text>
+                : consultationStatus === "recording" ?
+                <Text>Transcript will display once recording is stopped.</Text>
+                : consultationStatus === "generating" ?
+                <Text>Generating transcript...</Text>
+                : consultationStatus === "summary" &&
+                renderConsultation({ item: consultations[0] }, "Transcript")
+              }
+            </View>
+            : activeTab === 'summary' ?
+            <View style={{flex: 1}}>
+              {consultationStatus === "waiting" ?
+                <Text>Begin recording to start generating summary.</Text>
+                : consultationStatus === "recording" ?
+                <Text>Summary will display once recording is stopped.</Text>
+                : consultationStatus === "generating" ?
+                <Text>Generating summary...</Text>
+                : consultationStatus === "summary" &&
+                renderConsultation({ item: consultations[0] }, "Summary")
+              }
             </View>
             :
             <FlatList
@@ -240,13 +337,24 @@ export default function Index() {
       </View>
 
       <View style={commandTabStyles.container}>
-        {isRecording ?
+        {consultationStatus === "waiting" ?
+          <View style={commandTabStyles.tab}>
+            <TouchableOpacity
+              style={commandTabStyles.recordButton}
+              onPress={startRecording}
+            >
+              <Entypo name="mic" size={20} color={COLORS.PRIMARY} />
+              <Text style={commandTabStyles.buttonText}>Start Recording</Text>
+            </TouchableOpacity>
+          </View>
+          : consultationStatus === "recording" ?
           <View style={commandTabStyles.tab}>
             <View style={commandTabStyles.recordButtonCont}>
               <View style={commandTabStyles.recordButton}>
                 <View style={commandTabStyles.recordingIndicator} />
                 <Text style={commandTabStyles.recordingIndicatorText}>Recording...</Text>
               </View>
+              <Text style={commandTabStyles.recordingTimeText}>{formatDuration(recordingDuration)}</Text>
               <View style={commandTabStyles.divider}/>
               <Pressable testID="stop-button" style={commandTabStyles.stopButton} onPress={stopRecording}>
                 {({pressed, hovered}) => (
@@ -258,6 +366,14 @@ export default function Index() {
                 )}
               </Pressable>
             </View>
+          </View>
+          : consultationStatus === "generating" ?
+          <View style={commandTabStyles.tab}>
+            <View style={commandTabStyles.recordButton}>
+              <Entypo name="pencil" size={20} color={COLORS.GRAY_800} />
+              <Text style={[commandTabStyles.buttonText, {color: COLORS.GRAY_800}]}>Generating...</Text>
+            </View>
+            <Text style={commandTabStyles.recordingTimeText}>{formatDuration(recordingDuration)}</Text>
           </View>
           :
           <View>
@@ -271,21 +387,22 @@ export default function Index() {
             <View style={commandTabStyles.tab}>
               <TouchableOpacity
                 style={commandTabStyles.recordButton}
-                onPress={startRecording}
+                onPress={() => setShowDocPopup(!showDocPopup)}
               >
-                <Entypo name="mic" size={20} color={COLORS.PRIMARY} />
-                <Text style={commandTabStyles.buttonText}>Start Recording</Text>
+                <Entypo name="circle-with-plus" size={20} color={COLORS.PRIMARY} />
+                <Text style={commandTabStyles.buttonText}>{showDocPopup ? 'Hide Popup' : 'Generate Doc'}</Text>
               </TouchableOpacity>
               <View style={commandTabStyles.divider}/>
               <TouchableOpacity
                 style={commandTabStyles.recordButton}
-                onPress={() => setShowDocPopup(!showDocPopup)}
+                onPress={nextPatient}
               >
-                <Entypo name="circle-with-plus" size={20} color={COLORS.GRAY_800} />
-                <Text style={[commandTabStyles.buttonText, {color: COLORS.GRAY_800}]}>{showDocPopup ? 'Hide Popup' : 'Generate Doc'}</Text>
+                <Entypo name="arrow-with-circle-right" size={20} color={COLORS.GRAY_800} />
+                <Text style={[commandTabStyles.buttonText, {color: COLORS.GRAY_800}]}>Next Patient</Text>
               </TouchableOpacity>
             </View>
           </View>
+          
         }
       </View>
     </View>

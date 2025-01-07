@@ -31,7 +31,6 @@ export const generalStyles = StyleSheet.create({
     },
     {
       height: "100%",
-      backgroundColor: COLORS.GRAY_200,
       width: 1,
     }
   ),
@@ -86,9 +85,17 @@ export const generalStyles = StyleSheet.create({
     color: COLORS.PRIMARY,
     marginBottom: 4,
   },
+  patientNameCont: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   recordingIndicator: {
-    color: 'red',
-    marginTop: 10,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.RECORDING,
+    marginRight: 8,
   },
   sectionTitle: {
     fontSize: 18,

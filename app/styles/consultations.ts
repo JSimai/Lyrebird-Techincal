@@ -58,13 +58,16 @@ export const consultationsStyles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#457CBF',
+    height: "100%",
+    justifyContent: 'center',
   },
-  tabButtonSelected: {
-    backgroundColor: '#457CBF',
-    flex: 1,
+  tabButtonHistory: {
     alignItems: 'center',
     padding: 8,
     borderRadius: 8,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#457CBF',
   },
   tabButtonText: {
     color: '#457CBF',
