@@ -1,13 +1,13 @@
 # Mockingbird
 
-A simplified health consultations app that allows users to write notes, start consultations, generate placeholder summaries, and more. Built with React Native and Expo. While optimized for web usage, the app is also fully functional on mobile devices as a native app in Expo Go.
+A simplified health consultations app that allows users to write notes, start consultations, generate transcripts and summaries, and more. Built with React Native, Expo, Express and Prisma.
 
 ## Project Overview
 
 This application allows users to:
 - Start and stop consultation recordings.
 - Write notes before and during consultations.
-- Generate placeholder summaries for consultations.
+- Generate transcripts and summaries for consultations.
 - View consultation history.
 
 ## Technical Stack
@@ -15,12 +15,15 @@ This application allows users to:
 - Expo
 - React Native
 - TypeScript
+- Express
+- Prisma
+- PostgreSQL
 
 ## Installation
 
 1. Clone the repository:
 
-2. Navigate to the project directory:
+2. Navigate to frontend project directory:
    ```bash
    cd app
    ```
@@ -30,9 +33,19 @@ This application allows users to:
    npm install
    ```
 
+4. In seperate terminal, navigate to Backend project directory:
+   ```bash
+   cd backend
+   ```
+
+5. Install dependencies:
+   ```bash
+   npm install
+   ```
+
 ## Running the Application
 
-1. Start the development server:
+1. Start the frontenddevelopment server:
    ```bash
    npm start
    ```
@@ -40,6 +53,10 @@ This application allows users to:
 3. For mobile access, download Expo Go app (iOS/Android).
 4. Scan the QR code with Expo Go app (Android) or camera (iOS).
 5. Alternatively, it can be run on a mobile simulator.
+6. In the other terminal, start the backend development server:
+   ```bash
+   npm run dev
+   ```
 
 ## Development Notes
 
@@ -54,10 +71,9 @@ Only relevant features are implemented, however, there are many other features t
 
 ### Backend
 
-As this is a mockup with placeholder data, I decided to not implement a backend. However, if I were to implement a backend, key items to consider, unique to this project, would be:
+Built with Express, Prisma, and PostgreSQL. Allows for audio transcription using OpenAI's Whisper API. Done in 10-second chunks to allow for the transcription to be done in a timely manner as well as consistent error checking. 2-second overlap is added to the audio to make sure the transcription is complete. Once the transcription is complete, the summary is generated using a GPT-4o model.
 
-- Audio recording: I would create a 30-second to 1-minute interval check where when recording, the audio would be split into segments to check for any issues with the microphone, internet connection, or other issues. If an issue had occured in one of the audio segments, we would still have all the older audio segments. An error would be thrown to the frontend to be displayed to the user.
-- Summary generation: I would use a LLM to generate the summaries which would take into account the notes, previous patient information, and the audio recording. The audio recording would be the segmented audio stitched back together.
+Patient and consultation data is stored in a PostgreSQL database.
 
 
 ### Unit Testing
@@ -66,4 +82,4 @@ I have created a few very simple unit tests to make sure the UI works as expecte
 
 ### Error Handling
 
-Try and catch blocks should be used to handle errors in the frontend allowing for the user to be informed of any issues without crashing the app or corrupting data.
+Try and catch blocks are used to handle errors in the frontend allowing for the user to be informed of any issues without crashing the app or corrupting data.
