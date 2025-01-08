@@ -30,49 +30,39 @@ interface Consultation {
   };
 }
 
+interface Patient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const generateRandomName = () => {
   const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
   const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
   return `${firstName} ${lastName}`;
 };
 
-const generateRandomTime = () => {
-  const hour = Math.floor(Math.random() * (17 - 9) + 9); // 9 AM to 5 PM
-  const minute = Math.floor(Math.random() * 6) * 10; // 0, 10, 20, 30, 40, 50
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour > 12 ? hour - 12 : hour;
-  return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
-};
+// const generateRandomTime = () => {
+//   const hour = Math.floor(Math.random() * (17 - 9) + 9); // 9 AM to 5 PM
+//   const minute = Math.floor(Math.random() * 6) * 10; // 0, 10, 20, 30, 40, 50
+//   const ampm = hour >= 12 ? 'PM' : 'AM';
+//   const hour12 = hour > 12 ? hour - 12 : hour;
+//   return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
+// };
 
 export default function Index() {
 
   const [consultationStatus, setConsultationStatus] = useState("waiting");
   const [currentNote, setCurrentNote] = useState('');
-  const [consultations, setConsultations] = useState<Consultation[]>([
-    {
-      id: Date.now().toString(),
-      patientName: "Sarah Mitchell",
-      date: new Date(),
-      time: generateRandomTime(),
-      note: currentNote,
-      summary: { 
-        text: "Hi there, welcome, good morning. Can you tell me your name and what brings you in today? Hi, my name is Sarah Mitchell. I've been feeling unwell for a few days. I have a persistent headache, some nausea, and occasional dizziness. I've been in before. I'm an existing patient. I see. Well, nice to see you again. Have you experienced these symptoms before? Uh, not really. It started three days ago after I had a long day at work. Yes, it was really long, very stressful. I also haven't been sleeping very well. Okay. Are you taking any medications currently? And do you have any known medical conditions? I take daily antihistamine for allergies and I had a panadol a couple days ago, but no other medications or major health issues. Got it. Any recent changes in your diet, stress levels or maybe exposure to allergens? I've been stressed with work. Like I said, I skipped a few meals this week. Otherwise, no major changes. Understood. Based on what you've described, it sounds like your symptoms may be related to stress and lack of rest. I'd recommend staying hydrated, eating regular meals, and trying to get more sleep. If the symptoms persist or worsen we can run some tests to rule out other causes. Does that sound good to you? Makes sense. I'll try those suggestions. Great. If you need anything else, don't hesitate to reach out. Take care.", 
-        subjective: "Sarah Mitchell reports feeling unwell for a few days with a persistent headache, nausea, and occasional dizziness. Symptoms started three days ago after a long, stressful day at work and poor sleep.", 
-        pmh: "No major health issues reported.", 
-        medications: "Daily antihistamine for allergies, Panadol taken a couple of days ago.", 
-        familyHistory: "Not discussed in this consultation.", 
-        examination: "No physical examination findings were discussed.", 
-        assessment: "Symptoms may be related to stress and lack of rest.", 
-        plan: "Recommend staying hydrated, eating regular meals, and getting more sleep. If symptoms persist or worsen, consider running tests to rule out other causes."
-      },
-    }
-  ]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [activeTab, setActiveTab] = useState('summary');
   const [patientName, setPatientName] = useState(generateRandomName());
-  const [consultTime, setConsultTime] = useState(generateRandomTime());
   const [showDocPopup, setShowDocPopup] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
+  const [currentPatient, setCurrentPatient] = useState<Patient | null>(null);
   
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -82,6 +72,20 @@ export default function Index() {
 
   const startRecording = async () => {
     try {
+      const names = patientName.split(' ');
+      const response = await fetch('http://localhost:3000/patients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: names[0],
+          lastName: names[1]
+        })
+      });
+      
+      if (!response.ok) throw new Error('Failed to create patient');
+      const patient = await response.json();
+      setCurrentPatient(patient);
+
       await audioRecorder.startRecording();
       setConsultationStatus("recording");
       setActiveTab('summary');
@@ -91,7 +95,7 @@ export default function Index() {
       }, 1000);
     } catch (error) {
       console.error('Failed to start recording:', error);
-      alert('Failed to start recording. Please try again.');
+      alert('Failed to start recording: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -104,7 +108,6 @@ export default function Index() {
       }
       setConsultationStatus("generating");
       const { audioBlob, transcription } = await audioRecorder.stopRecording();
-      console.log('Received from audioRecorder:', { transcription });
       Keyboard.dismiss();
 
       // Send transcription to backend for summary generation
@@ -113,39 +116,33 @@ export default function Index() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ transcription })
+        body: JSON.stringify({ 
+          transcription,
+          patientId: currentPatient?.id,
+          notes: currentNote
+        })
       });
 
-      const { summary } = await response.json();
+      if (!response.ok) throw new Error('Failed to generate summary');
+      const { summary, consultation } = await response.json();
 
-      // console.log('Summary:', summary);
-
-      // const summary = { 
-      //   text: "Hi there, welcome, good morning. Can you tell me your name and what brings you in today? Hi, my name is Sarah Mitchell. I've been feeling unwell for a few days. I have a persistent headache, some nausea, and occasional dizziness. I've been in before. I'm an existing patient. I see. Well, nice to see you again. Have you experienced these symptoms before? Uh, not really. It started three days ago after I had a long day at work. Yes, it was really long, very stressful. I also haven't been sleeping very well. Okay. Are you taking any medications currently? And do you have any known medical conditions? I take daily antihistamine for allergies and I had a panadol a couple days ago, but no other medications or major health issues. Got it. Any recent changes in your diet, stress levels or maybe exposure to allergens? I've been stressed with work. Like I said, I skipped a few meals this week. Otherwise, no major changes. Understood. Based on what you've described, it sounds like your symptoms may be related to stress and lack of rest. I'd recommend staying hydrated, eating regular meals, and trying to get more sleep. If the symptoms persist or worsen we can run some tests to rule out other causes. Does that sound good to you? Makes sense. I'll try those suggestions. Great. If you need anything else, don't hesitate to reach out. Take care.", 
-      //   subjective: "Sarah Mitchell reports feeling unwell for a few days with a persistent headache, nausea, and occasional dizziness. Symptoms started three days ago after a long, stressful day at work and poor sleep.", 
-      //   pmh: "No major health issues reported.", 
-      //   medications: "Daily antihistamine for allergies, Panadol taken a couple of days ago.", 
-      //   familyHistory: "Not discussed in this consultation.", 
-      //   examination: "No physical examination findings were discussed.", 
-      //   assessment: "Symptoms may be related to stress and lack of rest.", 
-      //   plan: "Recommend staying hydrated, eating regular meals, and getting more sleep. If symptoms persist or worsen, consider running tests to rule out other causes."
-      // }
-
-      const newConsultation: Consultation = {
-        id: Date.now().toString(),
-        patientName: patientName,
-        date: new Date(),
-        time: consultTime,
-        note: currentNote,
-        summary: summary,
-      };
-
-      setConsultations([newConsultation, ...consultations]);
+      setConsultations([
+        {
+          id: consultation.id,
+          patientName: patientName,
+          date: new Date(consultation.date),
+          time: consultation.time,
+          note: consultation.notes,
+          summary: consultation.summary
+        },
+        ...consultations
+      ]);
+      
       setConsultationStatus("summary");
       setActiveTab('summary');
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      alert('Failed to stop recording. Please try again.');
+      alert('Failed to stop recording: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -154,8 +151,10 @@ export default function Index() {
     setConsultationStatus("waiting");
     setActiveTab('summary');
     setCurrentNote('');
-    setPatientName(generateRandomName());
-    setConsultTime(generateRandomTime());
+    setCurrentPatient(null);
+    const newName = generateRandomName();
+    setPatientName(newName);
+    resetTimer();
   };
 
   const resetTimer = () => {
@@ -243,6 +242,33 @@ export default function Index() {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchConsultations = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/consultations');
+        if (!response.ok) throw new Error('Failed to fetch consultations');
+        const data = await response.json();
+        
+        // Transform data to match the Consultation interface
+        const formattedConsultations = data.map((consultation: any) => ({
+          id: consultation.id,
+          patientName: `${consultation.patient.firstName} ${consultation.patient.lastName}`,
+          date: new Date(consultation.date),
+          time: consultation.time,
+          note: consultation.notes,
+          summary: consultation.summary
+        }));
+        
+        setConsultations(formattedConsultations);
+      } catch (error) {
+        console.error('Failed to fetch consultations:', error);
+        alert('Failed to load consultations. Please try again later.');
+      }
+    };
+
+    fetchConsultations();
+  }, []); // Empty dependency array means this runs once when component mounts
+
   return (
     <View style={generalStyles.container}>
       <StatusBar style="light" backgroundColor="#457CBF" />
@@ -271,7 +297,7 @@ export default function Index() {
             }
           </View>
           <Text style={generalStyles.consultDateTime}>
-            {new Date().toLocaleDateString()} - {consultTime}
+            {new Date().toLocaleDateString()}
           </Text>
         </View>
       </View>

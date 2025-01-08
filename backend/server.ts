@@ -4,9 +4,8 @@ import { Server } from 'socket.io';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import { Request, Response, RequestHandler } from 'express';
 import * as fs from 'fs';
-import { Readable } from 'stream';
+import { db, prisma } from './services/database';
 
 dotenv.config();
 
@@ -165,27 +164,57 @@ async function generateSummary(transcription: string): Promise<Summary> {
   }
 }
 
+// Get all patients
+app.get('/patients', async (req, res) => {
+  try {
+    const patients = await db.getPatients();
+    res.json(patients);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch patients' });
+  }
+});
+
+// Create new patient
+app.post('/patients', async (req, res) => {
+  try {
+    const { firstName, lastName } = req.body;
+    const patient = await db.createPatient(firstName, lastName);
+    res.json(patient);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create patient' });
+  }
+});
+
+// Get patient's consultations
+app.get('/patients/:id/consultations', async (req, res) => {
+  try {
+    const consultations = await db.getConsultations(req.params.id);
+    res.json(consultations);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch consultations' });
+  }
+});
+
+// Create consultation (modified from your existing endpoint)
 app.post('/generate-summary', async (req, res) => {
   try {
-    const { transcription } = req.body;
+    const { transcription, patientId, notes } = req.body;
     const cleanedTranscription = await cleanupTranscript(transcription);
     const summary = await generateSummary(cleanedTranscription);
-    res.json({ summary });
+    
+    // Store in database
+    const consultation = await db.createConsultation(
+      patientId,
+      new Date(),
+      new Date().toLocaleTimeString(),
+      notes || '',
+      summary
+    );
+
+    res.json({ summary, consultation });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate summary',
-      summary: {
-        text: req.body.transcription,
-        subjective: "Error generating summary",
-        pmh: "",
-        medications: "",
-        familyHistory: "",
-        examination: "",
-        assessment: "",
-        plan: ""
-      }
-    });
+    res.status(500).json({ error: 'Failed to generate summary' });
   }
 });
 
@@ -198,6 +227,18 @@ app.post('/generate-summary', async (req, res) => {
 //     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
 //   }
 // });
+
+app.get('/consultations', async (req, res) => {
+  try {
+    const consultations = await prisma.consultation.findMany({
+      orderBy: { date: 'desc' },
+      include: { patient: true } // Include patient data to get name
+    });
+    res.json(consultations);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch consultations' });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
