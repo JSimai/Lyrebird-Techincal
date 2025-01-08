@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:13
+    restart: always
+    environment:
+      - POSTGRES_USER=mockingbird
+      - POSTGRES_PASSWORD=mockingbird
+      - POSTGRES_DB=mockingbird
+    ports:
+      - '5432:5432'
+    volumes:
+      - db:/var/lib/postgresql/data
+
+volumes:
+  db:
+    driver: local
